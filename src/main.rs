@@ -1,6 +1,7 @@
 mod dir;
 
 use clap::Parser;
+use dir::SizeEntry;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -14,12 +15,22 @@ fn main() {
         panic!("You should specify at least one path!");
     }
 
-    for p in args.paths.iter() {
-        match dir::list(std::path::Path::new(p)) {
-            Ok(size_entries) => size_entries.iter().for_each(|size_entry| {
-                println!("{}\t\t\t{}", size_entry.name, size_entry.size);
-            }),
+    for path in args.paths.iter() {
+        match dir::list(std::path::Path::new(path)) {
+            Ok(size_entries) => dir_summary(&size_entries),
             Err(io_error) => panic!("Error occurred: {}", io_error),
         }
     }
+}
+
+fn dir_summary(entries: &[SizeEntry]) {
+    entries.iter().for_each(|size_entry| {
+        println!("{}\t\t\t{}", size_entry.name, size_entry.size);
+    });
+    println!("TOTAL:");
+    println!(
+        "{} files, {} bytes",
+        entries.len(),
+        entries.iter().map(|e| e.size).sum::<u64>()
+    );
 }
