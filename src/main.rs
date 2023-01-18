@@ -1,5 +1,7 @@
 use clap::Parser;
 use filestats::SizeEntry;
+use std::error::Error;
+use std::process::exit;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -9,16 +11,23 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
+    if let Err(error) = run(args) {
+        println!("{error}");
+        exit(1);
+    }
+}
+
+fn run(args: Args) -> Result<(), Box<dyn Error>> {
     if args.paths.is_empty() {
-        panic!("You should specify at least one path!");
+        return Err("You should specify at least one path!".into());
     }
 
     for path in args.paths.iter() {
-        match filestats::list(std::path::Path::new(path)) {
-            Ok(size_entries) => dir_summary(&size_entries),
-            Err(io_error) => panic!("Error occurred: {}", io_error),
-        }
+        let size_entries = filestats::list(std::path::Path::new(path))?;
+        dir_summary(&size_entries);
     }
+
+    Ok(())
 }
 
 fn dir_summary(entries: &[SizeEntry]) {
