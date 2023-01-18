@@ -11,7 +11,7 @@ pub struct SizeEntry {
 impl SizeEntry {
     fn new(name: &str, size: u64) -> Self {
         SizeEntry {
-            name: String::from(name),
+            name: name.to_owned(),
             size,
         }
     }
@@ -36,8 +36,8 @@ pub fn list(path: &Path) -> Result<Vec<SizeEntry>, IOError> {
 
 #[cfg(test)]
 mod tests {
+    use super::list;
     use super::SizeEntry;
-    use crate::dir::list;
     use std::fs::create_dir;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -61,7 +61,7 @@ mod tests {
         dir_list
             .iter()
             .zip(test_files.iter())
-            .for_each({ |(retrieved, expected)| assert_eq!(*retrieved, *expected) })
+            .for_each(|(retrieved, expected)| assert_eq!(*retrieved, *expected))
     }
 
     fn setup(test_files: &[SizeEntry]) -> PathBuf {

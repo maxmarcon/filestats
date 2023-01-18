@@ -1,7 +1,5 @@
-mod dir;
-
 use clap::Parser;
-use dir::SizeEntry;
+use filestats::SizeEntry;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -16,7 +14,7 @@ fn main() {
     }
 
     for path in args.paths.iter() {
-        match dir::list(std::path::Path::new(path)) {
+        match filestats::list(std::path::Path::new(path)) {
             Ok(size_entries) => dir_summary(&size_entries),
             Err(io_error) => panic!("Error occurred: {}", io_error),
         }
