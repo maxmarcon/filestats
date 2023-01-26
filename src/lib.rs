@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::fs;
 use std::io::Error as IOError;
 use std::path::Path;
@@ -28,17 +29,27 @@ impl SizeEntry {
 
 pub fn list(path: &Path) -> Result<Vec<SizeEntry>, IOError> {
     let mut size_entries = Vec::new();
-    for dir_entry in fs::read_dir(path)? {
-        let dir_entry = dir_entry?;
-        let metadata = fs::metadata(dir_entry.path())?;
-        let size_entry = SizeEntry::new(
-            dir_entry
-                .file_name()
-                .to_str()
-                .expect("Filename is not valid Unicode"),
-            metadata.len(),
-        );
-        size_entries.push(size_entry);
+
+    let mut paths = VecDeque::from([path.to_owned()]);
+    let mut current_path;
+    while paths.len() > 0 {
+        current_path = paths.pop_front().unwrap();
+        for dir_entry in fs::read_dir(&current_path)? {
+            let dir_entry = dir_entry?;
+            let metadata = fs::metadata(dir_entry.path())?;
+            if metadata.file_type().is_dir() {
+                paths.push_back(dir_entry.path());
+            } else if metadata.file_type().is_file() {
+                let size_entry = SizeEntry::new(
+                    dir_entry
+                        .file_name()
+                        .to_str()
+                        .expect("Filename is not valid Unicode"),
+                    metadata.len(),
+                );
+                size_entries.push(size_entry);
+            }
+        }
     }
     Ok(size_entries)
 }
@@ -47,21 +58,20 @@ pub fn list(path: &Path) -> Result<Vec<SizeEntry>, IOError> {
 mod tests {
     use super::list;
     use super::SizeEntry;
+    use rand::Rng;
     use std::fs::create_dir;
-    use std::ops::Add;
     use std::path::{Path, PathBuf};
-    use std::time::{SystemTime, UNIX_EPOCH};
     use std::{env, fs};
 
     #[test]
     fn can_list_files() {
-        let mut test_files: [SizeEntry; 3] = [
+        let mut test_files = vec![
             SizeEntry::new("foo", 100),
             SizeEntry::new("boo", 200),
             SizeEntry::new("goo", 300),
         ];
 
-        let test_dir = setup(&test_files, None, None);
+        let test_dir = setup(&test_files, None);
 
         let mut dir_list = list(test_dir.as_path()).unwrap();
 
@@ -76,48 +86,42 @@ mod tests {
 
     #[test]
     fn can_list_files_recursively() {
-        let test_files: [SizeEntry; 3] = [
+        let mut test_files = vec![
             SizeEntry::new("foo", 100),
             SizeEntry::new("boo", 200),
             SizeEntry::new("goo", 300),
         ];
 
-        let test_dir = setup(&test_files, None, Some(1));
+        let test_dir = setup(&test_files, None);
 
-        let test_files_sub_dir: [SizeEntry; 3] = [
+        let mut test_files_sub_dir = vec![
             SizeEntry::new("abc", 340),
             SizeEntry::new("def", 50),
             SizeEntry::new("ghi", 2),
         ];
 
-        setup(&test_files_sub_dir, Some(test_dir.as_path()), None);
+        setup(&test_files_sub_dir, Some(test_dir.as_path()));
 
         let mut dir_list = list(test_dir.as_path()).unwrap();
 
-        let mut all_test_files = Vec::new();
-        all_test_files.extend_from_slice(&test_files);
-        all_test_files.extend_from_slice(&test_files_sub_dir);
+        test_files.append(&mut test_files_sub_dir);
 
         dir_list.sort();
-        all_test_files.sort();
+        test_files.sort();
 
         dir_list
             .iter()
-            .zip(all_test_files.iter())
+            .zip(test_files.iter())
             .for_each(|(retrieved, expected)| assert_eq!(*retrieved, *expected))
     }
 
-    fn setup(test_files: &[SizeEntry], dest: Option<&Path>, index: Option<u64>) -> PathBuf {
+    fn setup(test_files: &[SizeEntry], dest: Option<&Path>) -> PathBuf {
+        let mut rng = rand::thread_rng();
+
         let temp_dir = env::temp_dir();
         let parent_dir = dest.unwrap_or(temp_dir.as_path());
-        let subdir = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
-            .add(index.unwrap_or(0))
-            .to_string();
-
-        let test_dir = parent_dir.join(subdir);
+        let subdir: u32 = rng.gen();
+        let test_dir = parent_dir.join(format!("{}", subdir));
 
         create_dir(test_dir.as_path()).expect(&format!(
             "Could not create temporary directory: {}",

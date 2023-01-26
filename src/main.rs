@@ -1,6 +1,7 @@
 use clap::Parser;
 use filestats::SizeEntry;
 use std::error::Error;
+use std::io::Error as IOError;
 use std::process::exit;
 
 #[derive(Parser, Debug)]
@@ -22,10 +23,15 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
         return Err("You should specify at least one path!".into());
     }
 
-    for path in args.paths.iter() {
-        let size_entries = filestats::list(std::path::Path::new(path))?;
-        dir_summary(&size_entries);
-    }
+    let size_entries: Result<Vec<Vec<SizeEntry>>, IOError> = args
+        .paths
+        .iter()
+        .map(|path| filestats::list(std::path::Path::new(path)))
+        .collect();
+
+    let size_entries: Vec<SizeEntry> = size_entries?.into_iter().flatten().collect();
+
+    dir_summary(&size_entries);
 
     Ok(())
 }
