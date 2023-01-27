@@ -23,13 +23,14 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
         return Err("You should specify at least one path!".into());
     }
 
-    let size_entries: Result<Vec<Vec<SizeEntry>>, IOError> = args
+    let size_entries = args
         .paths
         .iter()
         .map(|path| filestats::list(std::path::Path::new(path)))
-        .collect();
-
-    let size_entries: Vec<SizeEntry> = size_entries?.into_iter().flatten().collect();
+        .collect::<Result<Vec<_>, IOError>>()?
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
 
     dir_summary(&size_entries);
 
