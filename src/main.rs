@@ -1,8 +1,10 @@
+mod dirutils;
+
 use clap::Parser;
-use filestats::SizeEntry;
 use std::error::Error;
 use std::io::Error as IOError;
 use std::process::exit;
+use crate::dirutils::SizeEntry;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -26,7 +28,7 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
     let size_entries = args
         .paths
         .iter()
-        .map(|path| filestats::list(std::path::Path::new(path)))
+        .map(|path| dirutils::list(std::path::Path::new(path), None))
         .collect::<Result<Vec<_>, IOError>>()?
         .into_iter()
         .flatten()

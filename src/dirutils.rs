@@ -27,7 +27,7 @@ impl SizeEntry {
     }
 }
 
-pub fn list(path: &Path) -> Result<Vec<SizeEntry>, IOError> {
+pub fn list(path: &Path, _max_depth: Option<u32>) -> Result<Vec<SizeEntry>, IOError> {
     let mut size_entries = Vec::new();
 
     let mut paths = VecDeque::from([path.to_owned()]);
@@ -73,7 +73,7 @@ mod tests {
 
         let test_dir = setup(&test_files, None);
 
-        let mut dir_list = list(test_dir.as_path()).unwrap();
+        let mut dir_list = list(test_dir.as_path(), None).unwrap();
 
         dir_list.sort();
         test_files.sort();
@@ -102,7 +102,7 @@ mod tests {
 
         setup(&test_files_sub_dir, Some(test_dir.as_path()));
 
-        let mut dir_list = list(test_dir.as_path()).unwrap();
+        let mut dir_list = list(test_dir.as_path(), None).unwrap();
 
         test_files.append(&mut test_files_sub_dir);
 
@@ -113,6 +113,27 @@ mod tests {
             .iter()
             .zip(test_files.iter())
             .for_each(|(retrieved, expected)| assert_eq!(*retrieved, *expected))
+    }
+
+    #[test]
+    fn can_limit_depth() {
+        let test_files = vec![
+            SizeEntry::new("foo", 100),
+            SizeEntry::new("boo", 200),
+            SizeEntry::new("goo", 300),
+        ];
+
+        let mut dir = PathBuf::new();
+        let mut topdir = PathBuf::new();
+
+        for level in 1..=10 {
+            dir = setup(&test_files, if level == 1 { None } else { Option::from(dir.as_path()) });
+            if level == 1 {
+                topdir = dir.to_owned();
+            }
+        }
+
+        assert_eq!(list(topdir.as_path(), Some(3)).unwrap().len(), 12);
     }
 
     fn setup(test_files: &[SizeEntry], dest: Option<&Path>) -> PathBuf {
