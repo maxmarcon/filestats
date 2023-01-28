@@ -35,7 +35,7 @@ pub fn list(path: &Path, max_depth: Option<u32>) -> Result<Vec<SizeEntry>, IOErr
 
     let mut paths = VecDeque::from([(path.to_owned(), 0)]);
 
-    while paths.len() > 0 {
+    while !paths.is_empty() {
         let (current_path, level) = paths.pop_front().unwrap();
         for dir_entry in fs::read_dir(&current_path)? {
             let dir_entry = dir_entry?;
