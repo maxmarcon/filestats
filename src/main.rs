@@ -1,14 +1,16 @@
 mod dirutils;
 
+use crate::dirutils::SizeEntry;
 use clap::Parser;
 use std::error::Error;
 use std::io::Error as IOError;
 use std::process::exit;
-use crate::dirutils::SizeEntry;
 
 #[derive(Parser, Debug)]
 struct Args {
     paths: Vec<String>,
+    #[arg(long, short)]
+    depth: Option<u32>,
 }
 
 fn main() {
@@ -28,7 +30,7 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
     let size_entries = args
         .paths
         .iter()
-        .map(|path| dirutils::list(std::path::Path::new(path), None))
+        .map(|path| dirutils::list(std::path::Path::new(path), args.depth))
         .collect::<Result<Vec<_>, IOError>>()?
         .into_iter()
         .flatten()
