@@ -36,7 +36,13 @@ pub fn list(path: &Path, max_depth: Option<u32>) -> Result<Vec<SizeEntry>, IOErr
     let mut paths = VecDeque::from([(path.to_owned(), 0)]);
 
     while let Some((current_path, level)) = paths.pop_front() {
-        for dir_entry in fs::read_dir(&current_path)? {
+        let read_dir = fs::read_dir(&current_path);
+        if let Err(error) = read_dir {
+            println!("can't list directory: {:?}: {}", current_path, error);
+            continue;
+        }
+
+        for dir_entry in read_dir.unwrap() {
             let dir_entry = dir_entry?;
             let metadata = fs::metadata(dir_entry.path());
             if let Err(error) = metadata {

@@ -42,9 +42,6 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
 }
 
 fn dir_summary(entries: &[SizeEntry]) {
-    entries.iter().for_each(|size_entry| {
-        println!("{}\t\t\t{}", size_entry.name, size_entry.size);
-    });
     println!("TOTAL:");
     println!(
         "{} files, {} bytes",
