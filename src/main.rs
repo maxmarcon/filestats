@@ -1,4 +1,5 @@
 mod dirutils;
+mod stats;
 
 use crate::dirutils::SizeEntry;
 use clap::Parser;
