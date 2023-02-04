@@ -16,6 +16,7 @@ impl Histogram {
     fn new(limits: &[u64]) -> Self {
         let mut buckets: Vec<Bucket> = limits
             .iter()
+            .filter(|limit| **limit != u64::MAX)
             .map(|limit| Bucket {
                 count: 0,
                 sum: 0,
@@ -50,11 +51,7 @@ impl Histogram {
         self.buckets.iter().map(|bucket| bucket.sum).sum()
     }
 
-    fn buckets(&self) -> usize {
-        self.buckets.len()
-    }
-
-    fn get_bucket(&self, index: usize) -> Option<&Bucket> {
-        self.buckets.get(index)
+    fn buckets(&self) -> &[Bucket] {
+        self.buckets.as_slice()
     }
 }
