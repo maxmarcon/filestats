@@ -37,9 +37,7 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
         .iter()
         .flat_map(|&e| SIZES.map(|s| s * 2_u64.pow(e)))
         .collect::<Vec<_>>();
-
-    println!("{:?}", ceilings);
-
+    
     let hist = args
         .paths
         .iter()
