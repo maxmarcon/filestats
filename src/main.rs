@@ -25,23 +25,20 @@ fn main() {
     }
 }
 
-const HIST_CEILINGS: [u64; 10] = [
-    2_u64.pow(10),
-    10 * 2_u64.pow(10),
-    100 * 2_u64.pow(10),
-    2_u64.pow(20),
-    10 * 2_u64.pow(20),
-    100 * 2_u64.pow(20),
-    2_u64.pow(30),
-    10 * 2_u64.pow(30),
-    100 * 2_u64.pow(30),
-    2_u64.pow(40),
-];
+const SIZES: [u64; 3] = [2, 10, 100];
+const EXP: [u32; 4] = [10, 20, 30, 40];
 
 fn run(args: Args) -> Result<(), Box<dyn Error>> {
     if args.paths.is_empty() {
         return Err("You should specify at least one path!".into());
     }
+
+    let ceilings = EXP
+        .iter()
+        .flat_map(|&e| SIZES.map(|s| s * 2_u64.pow(e)))
+        .collect::<Vec<_>>();
+
+    println!("{:?}", ceilings);
 
     let hist = args
         .paths
