@@ -25,7 +25,7 @@ fn main() {
     }
 }
 
-const SIZES: [u64; 3] = [2, 10, 100];
+const SIZES: [u64; 3] = [1, 10, 100];
 const EXP: [u32; 4] = [10, 20, 30, 40];
 
 fn run(args: Args) -> Result<(), Box<dyn Error>> {
@@ -47,7 +47,7 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
         .collect::<Result<Vec<_>, IOError>>()?
         .into_iter()
         .flatten()
-        .fold(Histogram::new(&HIST_CEILINGS), |mut hist, size_entry| {
+        .fold(Histogram::new(&ceilings), |mut hist, size_entry| {
             hist.add(size_entry.size);
             hist
         });
