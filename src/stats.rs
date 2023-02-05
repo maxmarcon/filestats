@@ -1,19 +1,21 @@
+#![allow(dead_code)]
 #[cfg(test)]
 mod test;
 
 #[derive(PartialEq, Debug)]
-struct Bucket {
+pub struct Bucket {
     count: u32,
     sum: u64,
     ceiling: u64,
 }
 
-struct Histogram {
+#[derive(Debug)]
+pub struct Histogram {
     buckets: Vec<Bucket>,
 }
 
 impl Histogram {
-    fn new(limits: &[u64]) -> Self {
+    pub fn new(limits: &[u64]) -> Self {
         let mut buckets: Vec<Bucket> = limits
             .iter()
             .filter(|&limit| *limit != u64::MAX)
@@ -33,7 +35,7 @@ impl Histogram {
         Histogram { buckets: buckets }
     }
 
-    fn add(&mut self, sample: u64) {
+    pub fn add(&mut self, sample: u64) {
         for mut bucket in self.buckets.iter_mut() {
             if sample <= bucket.ceiling {
                 bucket.count += 1;
@@ -43,15 +45,15 @@ impl Histogram {
         }
     }
 
-    fn count(&self) -> u32 {
+    pub fn count(&self) -> u32 {
         self.buckets.iter().map(|bucket| bucket.count).sum()
     }
 
-    fn sum(&self) -> u64 {
+    pub fn sum(&self) -> u64 {
         self.buckets.iter().map(|bucket| bucket.sum).sum()
     }
 
-    fn buckets(&self) -> &[Bucket] {
+    pub fn buckets(&self) -> &[Bucket] {
         self.buckets.as_slice()
     }
 }
