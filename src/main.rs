@@ -1,13 +1,10 @@
-mod dirutils;
-mod stats;
-
 use clap::Parser;
 use std::error::Error;
 use std::io::Error as IOError;
 use std::process::exit;
 
-use crate::dirutils::SizeEntry;
-use crate::stats::Histogram;
+use filestats::dirutils;
+use filestats::stats::Histogram;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -37,7 +34,7 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
         .iter()
         .flat_map(|&e| SIZES.map(|s| s * 2_u64.pow(e)))
         .collect::<Vec<_>>();
-    
+
     let hist = args
         .paths
         .iter()
@@ -50,17 +47,7 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
             hist
         });
 
-    println!("{:#?}", hist);
+    println!("{}", hist);
 
     Ok(())
-}
-
-#[allow(dead_code)]
-fn dir_summary(entries: &[SizeEntry]) {
-    println!("TOTAL:");
-    println!(
-        "{} files, {} bytes",
-        entries.len(),
-        entries.iter().map(|e| e.size).sum::<u64>()
-    );
 }
