@@ -3,6 +3,8 @@
 #[cfg(test)]
 mod test;
 
+use console::{pad_str, style, Alignment, Color};
+
 #[derive(PartialEq, Debug)]
 pub struct Bucket {
     count: u32,
@@ -63,16 +65,29 @@ impl std::fmt::Display for Histogram {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut iter = self.buckets().iter().rev().peekable();
 
+        let mut colors = [
+            Color::Red,
+            Color::Green,
+            Color::Yellow,
+            Color::Blue,
+            Color::Magenta,
+        ]
+        .iter()
+        .cycle();
+
         while let Some(bucket) = iter.next() {
             if bucket.count > 0 {
                 let base = iter.peek().map_or(0, |&b| b.ceiling);
-                write!(
-                    f,
-                    "{} - {} -> {}\n",
+                let color = *colors.next().unwrap();
+
+                let bucket_repr = format!(
+                    "{} to {} = {}\n",
                     format_bytes(base),
                     format_bytes(bucket.ceiling),
                     bucket.count
-                )?
+                );
+
+                write!(f, "{}", style(bucket_repr).fg(color))?
             }
         }
 
@@ -84,11 +99,17 @@ fn format_bytes(size: u64) -> String {
     const UNIT_SIZES: [u64; 3] = [2_u64.pow(30), 2_u64.pow(20), 2_u64.pow(10)];
     const UNIT_NAMES: [char; 3] = ['G', 'M', 'K'];
 
+    let mut byte_string = None;
+
     for (&unit_size, unit_name) in UNIT_SIZES.iter().zip(UNIT_NAMES) {
         if size >= unit_size {
-            return format!("{}{}iB", size / unit_size, unit_name);
+            byte_string = Some(format!("{}{}iB", size / unit_size, unit_name));
+            break;
         }
     }
 
-    return format!("{}B", size);
+    if byte_string == None {
+        byte_string = Some(format!("{}B", size));
+    }
+    pad_str(&byte_string.unwrap(), 7, Alignment::Left, None).into_owned()
 }
