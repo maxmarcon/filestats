@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod test;
 
-use console::{pad_str, style, Alignment, Color};
+use console::{style, Color};
 
 #[derive(PartialEq, Debug)]
 pub struct Bucket {
@@ -59,6 +59,12 @@ impl Histogram {
     pub fn buckets(&self) -> &[Bucket] {
         self.buckets.as_slice()
     }
+
+    pub fn mode(&self) -> Option<&Bucket> {
+        self.buckets
+            .iter()
+            .max_by(|&b1, &b2| b1.count.cmp(&b2.count))
+    }
 }
 
 impl std::fmt::Display for Histogram {
@@ -75,16 +81,21 @@ impl std::fmt::Display for Histogram {
         .iter()
         .cycle();
 
+        let total = self.count();
+        let max_digits = self.mode().unwrap().count.to_string().len();
+
         while let Some(bucket) = iter.next() {
             if bucket.count > 0 {
                 let base = iter.peek().map_or(0, |&b| b.ceiling);
                 let color = *colors.next().unwrap();
 
                 let bucket_repr = format!(
-                    "{} to {} = {}\n",
+                    "{} to {} = {:>4$} ({:.1}%)\n",
                     format_bytes(base),
                     format_bytes(bucket.ceiling),
-                    bucket.count
+                    bucket.count,
+                    100.0 * (bucket.count as f64 / total as f64),
+                    max_digits
                 );
 
                 write!(f, "{}", style(bucket_repr).fg(color))?
@@ -110,5 +121,5 @@ fn format_bytes(size: u64) -> String {
 
     let byte_string = byte_string.unwrap_or(format!("{}B", size));
 
-    pad_str(&byte_string, 7, Alignment::Left, None).into_owned()
+    format!("{:<7}", byte_string)
 }
