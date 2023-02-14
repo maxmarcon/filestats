@@ -30,7 +30,11 @@ impl SizeEntry {
     }
 }
 
-pub fn list(path: &Path, max_depth: Option<u32>) -> Result<Vec<SizeEntry>, IOError> {
+pub fn list(
+    path: &Path,
+    max_depth: Option<u32>,
+    progress: fn(usize) -> (),
+) -> Result<Vec<SizeEntry>, IOError> {
     let mut size_entries = Vec::new();
 
     let mut paths = VecDeque::from([(path.to_owned(), 0)]);
@@ -38,7 +42,7 @@ pub fn list(path: &Path, max_depth: Option<u32>) -> Result<Vec<SizeEntry>, IOErr
     while let Some((current_path, level)) = paths.pop_front() {
         let read_dir = fs::read_dir(&current_path);
         if let Err(error) = read_dir {
-            println!("can't list directory: {:?}: {}", current_path, error);
+            eprintln!("can't list directory: {:?}: {}", current_path, error);
             continue;
         }
 
@@ -46,7 +50,7 @@ pub fn list(path: &Path, max_depth: Option<u32>) -> Result<Vec<SizeEntry>, IOErr
             let dir_entry = dir_entry?;
             let metadata = fs::metadata(dir_entry.path());
             if let Err(error) = metadata {
-                println!("can't read: {:?}: {}", dir_entry.path(), error);
+                eprintln!("can't read: {:?}: {}", dir_entry.path(), error);
                 continue;
             }
 
@@ -65,6 +69,7 @@ pub fn list(path: &Path, max_depth: Option<u32>) -> Result<Vec<SizeEntry>, IOErr
                     metadata.len(),
                 );
                 size_entries.push(size_entry);
+                progress(size_entries.len())
             }
         }
     }

@@ -108,8 +108,7 @@ fn format_bytes(size: u64) -> String {
         }
     }
 
-    if byte_string == None {
-        byte_string = Some(format!("{}B", size));
-    }
-    pad_str(&byte_string.unwrap(), 7, Alignment::Left, None).into_owned()
+    let byte_string = byte_string.unwrap_or(format!("{}B", size));
+
+    pad_str(&byte_string, 7, Alignment::Left, None).into_owned()
 }
