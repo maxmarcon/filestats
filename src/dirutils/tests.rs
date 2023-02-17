@@ -13,9 +13,11 @@ fn can_list_files() {
         SizeEntry::new("goo", 300),
     ];
 
-    let test_dir = setup(&test_files, None);
+    let test_dir = create_files(&mut test_files, None);
 
-    let mut dir_list = list(test_dir.as_path(), None).unwrap();
+    let mut dir_list = list(test_dir.as_path(), None)
+        .map(|r| r.ok().unwrap())
+        .collect::<Vec<_>>();
 
     dir_list.sort();
     test_files.sort();
@@ -34,7 +36,7 @@ fn can_list_files_recursively() {
         SizeEntry::new("goo", 300),
     ];
 
-    let test_dir = setup(&test_files, None);
+    let test_dir = create_files(&mut test_files, None);
 
     let mut test_files_sub_dir = vec![
         SizeEntry::new("abc", 340),
@@ -42,9 +44,11 @@ fn can_list_files_recursively() {
         SizeEntry::new("ghi", 2),
     ];
 
-    setup(&test_files_sub_dir, Some(test_dir.as_path()));
+    create_files(&mut test_files_sub_dir, Some(test_dir.as_path()));
 
-    let mut dir_list = list(test_dir.as_path(), None).unwrap();
+    let mut dir_list = list(test_dir.as_path(), None)
+        .map(|r| r.ok().unwrap())
+        .collect::<Vec<_>>();
 
     test_files.append(&mut test_files_sub_dir);
 
@@ -69,8 +73,8 @@ fn can_limit_depth() {
     let mut topdir = PathBuf::new();
 
     for level in 0..=4 {
-        dir = setup(
-            &test_files,
+        dir = create_files(
+            &mut test_files.clone(),
             if level == 0 {
                 None
             } else {
@@ -82,10 +86,13 @@ fn can_limit_depth() {
         }
     }
 
-    assert_eq!(list(topdir.as_path(), Some(3)).unwrap().len(), 12);
+    assert_eq!(
+        list(topdir.as_path(), Some(3)).map(|r| r.unwrap()).count(),
+        12
+    );
 }
 
-fn setup(test_files: &[SizeEntry], dest: Option<&Path>) -> PathBuf {
+fn create_files(test_files: &mut [SizeEntry], dest: Option<&Path>) -> PathBuf {
     let mut rng = rand::thread_rng();
 
     let temp_dir = env::temp_dir();
@@ -98,14 +105,11 @@ fn setup(test_files: &[SizeEntry], dest: Option<&Path>) -> PathBuf {
         test_dir.display()
     ));
 
-    write_test_files(test_files, test_dir.as_path());
+    test_files.iter_mut().for_each(|f| {
+        let path = test_dir.join(&f.name);
+        fs::write(&path, str::repeat("0", f.size as usize)).expect("failed to write test file");
+        f.name = path.to_str().unwrap().to_owned();
+    });
 
     test_dir
-}
-
-fn write_test_files(files: &[SizeEntry], dest: &Path) {
-    files.iter().for_each(|f| {
-        fs::write(dest.join(&f.name), str::repeat("0", f.size as usize))
-            .expect("failed to write test file");
-    });
 }

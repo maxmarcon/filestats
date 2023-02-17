@@ -1,6 +1,5 @@
 use clap::Parser;
 use std::error::Error;
-use std::io::Error as IOError;
 use std::process::exit;
 use std::time::Instant;
 
@@ -26,10 +25,6 @@ fn main() {
 const SIZES: [u64; 3] = [1, 10, 100];
 const EXP: [u32; 4] = [10, 20, 30, 40];
 
-fn progress(count: usize) -> () {
-    print!("\rlooking at {} files", count)
-}
-
 fn run(args: Args) -> Result<(), Box<dyn Error>> {
     if args.paths.is_empty() {
         return Err("You should specify at least one path!".into());
@@ -44,10 +39,14 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
     let hist = args
         .paths
         .iter()
-        .map(|path| dirutils::list(std::path::Path::new(path), args.depth, progress))
-        .collect::<Result<Vec<_>, IOError>>()?
-        .into_iter()
-        .flatten()
+        .flat_map(|path| dirutils::list(std::path::Path::new(path), args.depth))
+        .filter_map(|r| match r {
+            Ok(size_entry) => Some(size_entry),
+            Err(error) => {
+                eprintln!("{}", error);
+                None
+            }
+        })
         .fold(Histogram::new(&ceilings), |mut hist, size_entry| {
             hist.add(size_entry.size);
             hist
