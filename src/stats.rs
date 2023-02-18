@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod test;
 
-use console::{style, Color};
+use console::{style, Color, Alignment, pad_str};
 
 #[derive(PartialEq, Debug)]
 pub struct Bucket {
@@ -100,7 +100,7 @@ impl std::fmt::Display for Histogram {
                     style(format_bytes(base)).fg(color),
                     style("to").fg(color),
                     style(format_bytes(bucket.ceiling)).fg(color),
-                    hist_bars(perc, &colors, PERC_POINT_PER_BAR),
+                    pad_str(&hist_bars(perc, &colors, PERC_POINT_PER_BAR), padding, Alignment::Left, None),
                     style(perc).fg(color),
                     style("%").fg(color),
                     style(bucket.count).fg(color),
