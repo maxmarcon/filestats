@@ -11,6 +11,8 @@ struct Args {
     paths: Vec<String>,
     #[arg(long, short)]
     depth: Option<u32>,
+    #[arg(long, short)]
+    verbose: bool,
 }
 
 fn main() {
@@ -40,11 +42,17 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
         .paths
         .iter()
         .flat_map(|path| dirutils::list(std::path::Path::new(path), args.depth))
-        .filter_map(|r| match r {
-            Ok(size_entry) => Some(size_entry),
-            Err(error) => {
-                eprintln!("{}", error);
-                None
+        .enumerate()
+        .filter_map(|(cnt, r)| {
+            print!("\rLooked at {} files", cnt);
+            match r {
+                Ok(size_entry) => Some(size_entry),
+                Err(error) => {
+                    if args.verbose {
+                        eprintln!("{}", error);
+                    }
+                    None
+                }
             }
         })
         .fold(Histogram::new(&ceilings), |mut hist, size_entry| {

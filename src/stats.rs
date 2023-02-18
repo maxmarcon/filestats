@@ -67,38 +67,45 @@ impl Histogram {
     }
 }
 
+const PERC_POINT_PER_BAR: u8 = 2;
+
 impl std::fmt::Display for Histogram {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut iter = self.buckets().iter().rev().peekable();
 
-        let mut colors = [
+        let colors = [
             Color::Red,
             Color::Green,
             Color::Yellow,
             Color::Blue,
             Color::Magenta,
-        ]
-        .iter()
-        .cycle();
+        ];
 
         let total = self.count();
-        let max_digits = self.mode().unwrap().count.to_string().len();
+        let max = self.mode().unwrap().count;
 
+        let padding = ((100.0 * (max as f32 / total as f32)) / PERC_POINT_PER_BAR as f32) as usize;
+
+        let mut bucket_colors = colors.iter().cycle();
         while let Some(bucket) = iter.next() {
             if bucket.count > 0 {
                 let base = iter.peek().map_or(0, |&b| b.ceiling);
-                let color = *colors.next().unwrap();
 
-                let bucket_repr = format!(
-                    "{} to {} = {:>4$} ({:.1}%)\n",
-                    format_bytes(base),
-                    format_bytes(bucket.ceiling),
-                    bucket.count,
-                    100.0 * (bucket.count as f64 / total as f64),
-                    max_digits
-                );
+                let perc = 100.0 * (bucket.count as f32 / total as f32);
 
-                write!(f, "{}", style(bucket_repr).fg(color))?
+                let &color = bucket_colors.next().unwrap();
+                write!(
+                    f,
+                    "{} {} {} {:7$} {:>5.1}{} {}\n",
+                    style(format_bytes(base)).fg(color),
+                    style("to").fg(color),
+                    style(format_bytes(bucket.ceiling)).fg(color),
+                    hist_bars(perc, &colors, PERC_POINT_PER_BAR),
+                    style(perc).fg(color),
+                    style("%").fg(color),
+                    style(bucket.count).fg(color),
+                    padding
+                )?;
             }
         }
 
@@ -122,4 +129,30 @@ fn format_bytes(size: u64) -> String {
     let byte_string = byte_string.unwrap_or(format!("{}B", size));
 
     format!("{:<7}", byte_string)
+}
+
+const SAME_COLOR_BARS: u8 = 4;
+
+fn hist_bars(perc: f32, colors: &[Color], perc_point_per_bar: u8) -> String {
+    if perc > 100.0 || perc < 0.0 {
+        panic!("perc should be a percentage, got {}", perc);
+    }
+
+    let bars = (perc / perc_point_per_bar as f32) as usize;
+    let mut bar_colors = colors.iter().cycle();
+    let mut str = String::new();
+
+    for _ in 0..(bars / SAME_COLOR_BARS as usize) {
+        str += &format!(
+            "{}",
+            style("|".repeat(SAME_COLOR_BARS as usize)).fg(*bar_colors.next().unwrap())
+        );
+    }
+
+    str += &format!(
+        "{}",
+        style("|".repeat(bars % SAME_COLOR_BARS as usize)).fg(*bar_colors.next().unwrap())
+    );
+
+    str
 }

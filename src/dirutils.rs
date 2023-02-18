@@ -3,7 +3,7 @@ mod tests;
 
 use std::collections::VecDeque;
 use std::fs;
-use std::io::Error as IOError;
+use std::io::{Error as IOError, Error};
 use std::iter::from_fn;
 use std::path::Path;
 
@@ -35,8 +35,13 @@ type Result = std::result::Result<SizeEntry, IOError>;
 
 pub fn list(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item = Result> {
     let mut paths = VecDeque::from([(path.to_owned(), 0)]);
+    let mut errors: Vec<Error> = Vec::new();
 
     from_fn(move || -> Option<Result> {
+        while let Some(error) = errors.pop() {
+            return Some(Err(error));
+        }
+
         while let Some((current_path, level)) = paths.pop_front() {
             let metadata = fs::metadata(&current_path).unwrap();
 
@@ -50,21 +55,21 @@ pub fn list(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item = Result>
             }
 
             let read_dir = fs::read_dir(&current_path);
-            if let Err(error) = read_dir {
-                return Some(Err(error));
+            if read_dir.is_err() {
+                return Some(Err(read_dir.err().unwrap()));
             }
 
             for dir_entry in read_dir.unwrap() {
                 let dir_entry = match dir_entry {
                     Ok(dir_entry) => dir_entry,
                     Err(error) => {
-                        println!("Can't read dir entry: {}", error);
+                        errors.push(error);
                         continue;
                     }
                 };
                 let metadata = fs::metadata(dir_entry.path());
                 if let Err(error) = metadata {
-                    println!("Can't read metadata for {:?}: {}", dir_entry, error);
+                    errors.push(error);
                     continue;
                 }
 
