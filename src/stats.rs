@@ -65,7 +65,7 @@ impl Histogram {
     }
 }
 
-const PERC_POINT_PER_BAR: u8 = 2;
+const PERC_POINT_PER_BAR: u32 = 2;
 
 impl std::fmt::Display for Histogram {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -134,27 +134,26 @@ fn format_bytes(size: u64) -> String {
     format!("{:<7}", byte_string)
 }
 
-const SAME_COLOR_BARS: u8 = 4;
-
-fn hist_bars(perc: f32, colors: &[Color], perc_point_per_bar: u8) -> String {
+fn hist_bars(perc: f32, colors: &[Color], perc_point_per_bar: u32) -> String {
     if perc > 100.0 || perc < 0.0 {
         panic!("perc should be a percentage, got {}", perc);
     }
 
     let bars = (perc / perc_point_per_bar as f32) as usize;
+    let bars_per_colors = (100 as f32 / PERC_POINT_PER_BAR as f32) as usize / colors.len() as usize;
     let mut bar_colors = colors.iter().cycle();
     let mut str = String::new();
 
-    for _ in 0..(bars / SAME_COLOR_BARS as usize) {
+    for _ in 0..(bars / bars_per_colors as usize) {
         str += &format!(
             "{}",
-            style("|".repeat(SAME_COLOR_BARS as usize)).fg(*bar_colors.next().unwrap())
+            style("|".repeat(bars_per_colors as usize)).fg(*bar_colors.next().unwrap())
         );
     }
 
     str += &format!(
         "{}",
-        style("|".repeat(bars % SAME_COLOR_BARS as usize)).fg(*bar_colors.next().unwrap())
+        style("|".repeat(bars % bars_per_colors as usize)).fg(*bar_colors.next().unwrap())
     );
 
     str
