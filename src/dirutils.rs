@@ -3,9 +3,10 @@ mod tests;
 
 use std::collections::VecDeque;
 use std::fs;
+use std::fs::ReadDir;
 use std::io::{Error as IOError, Error};
 use std::iter::from_fn;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub struct SizeEntry {
@@ -33,7 +34,7 @@ impl SizeEntry {
 
 type Result = std::result::Result<SizeEntry, IOError>;
 
-pub fn list(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item = Result> {
+pub fn list(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item=Result> {
     let mut paths = VecDeque::from([(path.to_owned(), 0)]);
     let mut errors: Vec<Error> = Vec::new();
 
@@ -54,34 +55,35 @@ pub fn list(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item = Result>
                 )));
             }
 
-            let read_dir = fs::read_dir(&current_path);
-            if read_dir.is_err() {
-                return Some(Err(read_dir.err().unwrap()));
+            let dir_entries = fs::read_dir(&current_path);
+            if dir_entries.is_err() {
+                return Some(Err(dir_entries.err().unwrap()));
             }
 
-            for dir_entry in read_dir.unwrap() {
-                let dir_entry = match dir_entry {
-                    Ok(dir_entry) => dir_entry,
-                    Err(error) => {
-                        errors.push(error);
-                        continue;
-                    }
-                };
-                let metadata = fs::metadata(dir_entry.path());
-                if let Err(error) = metadata {
-                    errors.push(error);
-                    continue;
-                }
-
-                if let Some(max_depth) = max_depth {
-                    if level > max_depth {
-                        continue;
-                    }
-                }
-
-                paths.push_back((dir_entry.path(), level + 1));
+            match max_depth {
+                Some(max_depth) if level > max_depth => (),
+                _ => read_dir(dir_entries.unwrap(), &mut paths, &mut errors, level)
             }
         }
         None
     })
+}
+
+fn read_dir(dir_entries: ReadDir, paths: &mut VecDeque<(PathBuf, u32)>, errors: &mut Vec<Error>, level: u32) -> () {
+    for dir_entry in dir_entries {
+        let dir_entry = match dir_entry {
+            Ok(dir_entry) => dir_entry,
+            Err(error) => {
+                errors.push(error);
+                continue;
+            }
+        };
+        let metadata = fs::metadata(dir_entry.path());
+        if let Err(error) = metadata {
+            errors.push(error);
+            continue;
+        }
+
+        paths.push_back((dir_entry.path(), level + 1));
+    }
 }
