@@ -49,7 +49,7 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
                 Ok(size_entry) => Some(size_entry),
                 Err(error) => {
                     if args.verbose {
-                        eprintln!("{}", error);
+                        eprintln!("\n{}", error);
                     }
                     None
                 }
