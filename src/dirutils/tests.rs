@@ -119,6 +119,19 @@ fn returns_errors() {
     assert_eq!(error.unwrap().err().unwrap().path, path_with_error);
 }
 
+#[test]
+fn accept_file_as_input_path() {
+    let mut test_file = [SizeEntry::from(("foo", 200))];
+
+    create_new_dir_with_files(&mut test_file, None);
+
+    let size_entries = list(test_file[0].path.as_path(), None)
+        .map(|r| r.unwrap())
+        .collect::<Vec<_>>();
+
+    assert_eq!(size_entries, test_file)
+}
+
 /// Creates `test_files` in a new dir with a randomly generated name
 /// place dir in `dest` (if provided) or in a temporary system folder
 fn create_new_dir_with_files(test_files: &mut [SizeEntry], dest: Option<&Path>) -> PathBuf {
