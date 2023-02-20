@@ -77,7 +77,6 @@ impl std::fmt::Display for Histogram {
             Color::Yellow,
             Color::Green,
             Color::Blue,
-            Color::Magenta,
             Color::Red,
         ];
 
