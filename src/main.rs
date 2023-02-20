@@ -38,29 +38,34 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
         .collect::<Vec<_>>();
 
     let start = Instant::now();
-    let hist = args
+    let (hist, errors) = args
         .paths
         .iter()
         .flat_map(|path| dirutils::list(std::path::Path::new(path), args.depth))
         .enumerate()
-        .filter_map(|(cnt, r)| {
-            print!("\rLooked at {} files", cnt);
-            match r {
-                Ok(size_entry) => Some(size_entry),
-                Err(error) => {
-                    if args.verbose {
-                        eprintln!("\n{}", error);
-                    }
-                    None
+        .map(|(cnt, r)| {
+            if cnt % 10 == 0 {
+                print!("\rLooked at {} files", cnt);
+            }
+            if let Err(ref error) = r {
+                if args.verbose {
+                    eprintln!("\n{}", error);
                 }
             }
+            r
         })
-        .fold(Histogram::new(&ceilings), |mut hist, size_entry| {
-            hist.add(size_entry.size);
-            hist
-        });
+        .fold(
+            (Histogram::new(&ceilings), 0),
+            |(mut hist, errors), r| match r {
+                Ok(size_entry) => {
+                    hist.add(size_entry.size);
+                    (hist, errors)
+                }
+                Err(_) => (hist, errors + 1),
+            },
+        );
 
-    println!("\r");
+    print!("\r");
     println!("{}", hist);
 
     println!(
@@ -68,6 +73,10 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
         hist.count(),
         start.elapsed().as_secs()
     );
+
+    if errors > 0 {
+        println!("{} files could not be read", errors);
+    }
 
     Ok(())
 }
