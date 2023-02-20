@@ -59,15 +59,17 @@ pub fn list(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item = Result>
         }
 
         while let Some((current_path, level)) = paths.pop_front() {
-            let metadata = fs::metadata(&current_path).unwrap();
+            let metadata = fs::symlink_metadata(&current_path).unwrap();
 
             if metadata.is_file() {
                 return Some(Ok(SizeEntry::new(current_path, metadata.len())));
             }
 
-            match max_depth {
-                Some(max_depth) if level > max_depth => (),
-                _ => read_dir(current_path, &mut paths, &mut errors, level),
+            if metadata.is_dir() {
+                match max_depth {
+                    Some(max_depth) if level > max_depth => (),
+                    _ => read_dir(current_path, &mut paths, &mut errors, level),
+                }
             }
         }
         None
