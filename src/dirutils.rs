@@ -59,7 +59,10 @@ pub fn list(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item = Result>
         }
 
         while let Some((current_path, level)) = paths.pop_front() {
-            let metadata = fs::symlink_metadata(&current_path).unwrap();
+            let metadata = match fs::symlink_metadata(&current_path) {
+                Ok(metadata) => metadata,
+                Err(error) => return Some(Err(Error::new(current_path, error))),
+            };
 
             if metadata.is_file() {
                 return Some(Ok(SizeEntry::new(current_path, metadata.len())));

@@ -120,7 +120,7 @@ fn returns_errors() {
 }
 
 #[test]
-fn accept_file_as_input_path() {
+fn accepts_file_as_input_path() {
     let mut test_file = [SizeEntry::from(("foo", 200))];
 
     create_new_dir_with_files(&mut test_file, None);
@@ -130,6 +130,19 @@ fn accept_file_as_input_path() {
         .collect::<Vec<_>>();
 
     assert_eq!(size_entries, test_file)
+}
+
+#[test]
+fn accepts_nonexistent_paths() {
+    let mut rng = rand::thread_rng();
+
+    let path = PathBuf::from(format!("{}", rng.gen::<u32>()));
+
+    let result = list(path.as_path(), None).next().unwrap();
+
+    assert!(result.is_err());
+
+    assert_eq!(result.err().unwrap().path, path);
 }
 
 /// Creates `test_files` in a new dir with a randomly generated name
