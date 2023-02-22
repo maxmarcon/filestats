@@ -6,6 +6,8 @@ use std::fmt::{Display, Formatter};
 use std::fs;
 use std::iter::from_fn;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+use std::thread::{spawn, JoinHandle};
 
 #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Clone)]
 pub struct SizeEntry {
@@ -50,44 +52,64 @@ impl Display for Error {
 type Result = std::result::Result<SizeEntry, Error>;
 
 pub fn list(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item = Result> {
-    let mut paths = VecDeque::from([(path.to_owned(), 0)]);
-    let mut errors: Vec<Error> = Vec::new();
+    let paths = Arc::new(Mutex::new(VecDeque::from([(path.to_owned(), 0)])));
+    let errors = Arc::new(Mutex::new(Vec::new()));
+    let mut handles: Vec<JoinHandle<()>> = Vec::new();
 
     from_fn(move || -> Option<Result> {
-        while let Some(error) = errors.pop() {
-            return Some(Err(error));
-        }
-
-        while let Some((current_path, level)) = paths.pop_front() {
-            let metadata = match fs::symlink_metadata(&current_path) {
-                Ok(metadata) => metadata,
-                Err(error) => return Some(Err(Error::new(current_path, error))),
-            };
-
-            if metadata.is_file() {
-                return Some(Ok(SizeEntry::new(current_path, metadata.len())));
+        loop {
+            if handles.is_empty() && paths.lock().unwrap().is_empty() {
+                return None;
             }
 
-            if metadata.is_dir() {
-                match max_depth {
-                    Some(max_depth) if level > max_depth => (),
-                    _ => read_dir(current_path, &mut paths, &mut errors, level),
+            while let Some(handle) = handles.pop() {
+                handle.join().unwrap();
+            }
+
+            while let Some(error) = errors.lock().unwrap().pop() {
+                return Some(Err(error));
+            }
+
+            while let Some((current_path, level)) = paths.lock().unwrap().pop_front() {
+                let metadata = match fs::symlink_metadata(&current_path) {
+                    Ok(metadata) => metadata,
+                    Err(error) => return Some(Err(Error::new(current_path, error))),
+                };
+
+                if metadata.is_file() {
+                    return Some(Ok(SizeEntry::new(current_path, metadata.len())));
+                }
+
+                if metadata.is_dir() {
+                    match max_depth {
+                        Some(max_depth) if level > max_depth => (),
+                        _ => {
+                            let paths = paths.clone();
+                            let errors = errors.clone();
+                            let handle =
+                                spawn(move || read_dir(current_path, paths, errors, &level));
+
+                            handles.push(handle);
+                        }
+                    }
                 }
             }
         }
-        None
     })
 }
 
 fn read_dir(
     dir_path: PathBuf,
-    paths: &mut VecDeque<(PathBuf, u32)>,
-    errors: &mut Vec<Error>,
-    level: u32,
+    paths: Arc<Mutex<VecDeque<(PathBuf, u32)>>>,
+    errors: Arc<Mutex<Vec<Error>>>,
+    level: &u32,
 ) -> () {
     let dir_entries = fs::read_dir(&dir_path);
     if dir_entries.is_err() {
-        errors.push(Error::new(dir_path, dir_entries.err().unwrap()));
+        errors
+            .lock()
+            .unwrap()
+            .push(Error::new(dir_path, dir_entries.err().unwrap()));
         return;
     }
 
@@ -95,16 +117,25 @@ fn read_dir(
         let dir_entry = match dir_entry {
             Ok(dir_entry) => dir_entry,
             Err(error) => {
-                errors.push(Error::new(dir_path.clone(), error));
+                errors
+                    .lock()
+                    .unwrap()
+                    .push(Error::new(dir_path.clone(), error));
                 continue;
             }
         };
         let metadata = fs::metadata(dir_entry.path());
         if let Err(error) = metadata {
-            errors.push(Error::new(dir_entry.path(), error));
+            errors
+                .lock()
+                .unwrap()
+                .push(Error::new(dir_entry.path(), error));
             continue;
         }
 
-        paths.push_back((dir_entry.path(), level + 1));
+        paths
+            .lock()
+            .unwrap()
+            .push_back((dir_entry.path(), level + 1));
     }
 }
