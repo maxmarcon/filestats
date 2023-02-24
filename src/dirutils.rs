@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod tests;
 
+use rayon::ThreadPoolBuilder;
 use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::iter::from_fn;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use rayon::ThreadPoolBuilder;
 
 #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Clone)]
 pub struct SizeEntry {
@@ -51,10 +51,10 @@ impl Display for Error {
 
 type Result = std::result::Result<SizeEntry, Error>;
 
-pub fn list(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item=Result> {
+pub fn list(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item = Result> {
     let paths = Arc::new(Mutex::new(VecDeque::from([(path.to_owned(), 0)])));
     let errors = Arc::new(Mutex::new(Vec::new()));
-    let thread_pool = ThreadPoolBuilder::new().build().unwrap();
+    let thread_pool = ThreadPoolBuilder::new().num_threads(1).build().unwrap();
 
     from_fn(move || -> Option<Result> {
         loop {
@@ -82,8 +82,8 @@ pub fn list(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item=Result> {
                 }
                 None
             }) {
-                None => (),
-                result => return result
+                result @ Some(_) => return result,
+                _ => (),
             }
 
             if let Some(error) = errors.lock().unwrap().pop() {
