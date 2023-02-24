@@ -7,7 +7,7 @@ use std::fs;
 use std::iter::from_fn;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::thread::{spawn, JoinHandle};
+use rayon::ThreadPoolBuilder;
 
 #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Clone)]
 pub struct SizeEntry {
@@ -51,48 +51,47 @@ impl Display for Error {
 
 type Result = std::result::Result<SizeEntry, Error>;
 
-pub fn list(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item = Result> {
+pub fn list(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item=Result> {
     let paths = Arc::new(Mutex::new(VecDeque::from([(path.to_owned(), 0)])));
     let errors = Arc::new(Mutex::new(Vec::new()));
-    let mut handles: Vec<JoinHandle<()>> = Vec::new();
+    let thread_pool = ThreadPoolBuilder::new().build().unwrap();
 
     from_fn(move || -> Option<Result> {
         loop {
-            if handles.is_empty() && paths.lock().unwrap().is_empty() {
-                return None;
-            }
+            match thread_pool.scope(|s| {
+                while let Some((current_path, level)) = paths.lock().unwrap().pop_front() {
+                    let metadata = match fs::symlink_metadata(&current_path) {
+                        Ok(metadata) => metadata,
+                        Err(error) => return Some(Err(Error::new(current_path, error))),
+                    };
 
-            while let Some(handle) = handles.pop() {
-                handle.join().unwrap();
-            }
+                    if metadata.is_file() {
+                        return Some(Ok(SizeEntry::new(current_path, metadata.len())));
+                    }
 
-            while let Some(error) = errors.lock().unwrap().pop() {
-                return Some(Err(error));
-            }
-
-            while let Some((current_path, level)) = paths.lock().unwrap().pop_front() {
-                let metadata = match fs::symlink_metadata(&current_path) {
-                    Ok(metadata) => metadata,
-                    Err(error) => return Some(Err(Error::new(current_path, error))),
-                };
-
-                if metadata.is_file() {
-                    return Some(Ok(SizeEntry::new(current_path, metadata.len())));
-                }
-
-                if metadata.is_dir() {
-                    match max_depth {
-                        Some(max_depth) if level > max_depth => (),
-                        _ => {
-                            let paths = paths.clone();
-                            let errors = errors.clone();
-                            let handle =
-                                spawn(move || read_dir(current_path, paths, errors, &level));
-
-                            handles.push(handle);
+                    if metadata.is_dir() {
+                        match max_depth {
+                            Some(max_depth) if level > max_depth => (),
+                            _ => {
+                                let paths = paths.clone();
+                                let errors = errors.clone();
+                                s.spawn(move |_| read_dir(current_path, paths, errors, level));
+                            }
                         }
                     }
                 }
+                None
+            }) {
+                None => (),
+                result => return result
+            }
+
+            if let Some(error) = errors.lock().unwrap().pop() {
+                return Some(Err(error));
+            }
+
+            if paths.lock().unwrap().is_empty() {
+                return None;
             }
         }
     })
@@ -102,7 +101,7 @@ fn read_dir(
     dir_path: PathBuf,
     paths: Arc<Mutex<VecDeque<(PathBuf, u32)>>>,
     errors: Arc<Mutex<Vec<Error>>>,
-    level: &u32,
+    level: u32,
 ) -> () {
     let dir_entries = fs::read_dir(&dir_path);
     if dir_entries.is_err() {
