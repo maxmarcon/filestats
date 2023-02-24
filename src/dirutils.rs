@@ -54,7 +54,7 @@ type Result = std::result::Result<SizeEntry, Error>;
 pub fn list(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item = Result> {
     let paths = Arc::new(Mutex::new(VecDeque::from([(path.to_owned(), 0)])));
     let errors = Arc::new(Mutex::new(Vec::new()));
-    let thread_pool = ThreadPoolBuilder::new().num_threads(1).build().unwrap();
+    let thread_pool = ThreadPoolBuilder::new().build().unwrap();
 
     from_fn(move || -> Option<Result> {
         loop {
