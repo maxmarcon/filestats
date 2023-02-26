@@ -55,6 +55,14 @@ impl Histogram {
         self.buckets.iter().map(|bucket| bucket.sum).sum()
     }
 
+    pub fn avg(&self) -> Option<f64> {
+        if self.count() > 0 {
+            Some(self.sum() as f64 / self.count() as f64)
+        } else {
+            None
+        }
+    }
+
     pub fn buckets(&self) -> &[Bucket] {
         self.buckets.as_slice()
     }
@@ -81,9 +89,10 @@ impl std::fmt::Display for Histogram {
         ];
 
         let total = self.count();
-        let max = self.mode().unwrap().count;
+        let max_bucket = self.mode().unwrap().count;
 
-        let padding = ((100.0 * (max as f32 / total as f32)) / PERC_POINT_PER_BAR as f32) as usize;
+        let padding =
+            ((100.0 * (max_bucket as f32 / total as f32)) / PERC_POINT_PER_BAR as f32) as usize;
 
         while let Some(bucket) = iter.next() {
             if bucket.count > 0 {

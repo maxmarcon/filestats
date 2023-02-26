@@ -136,14 +136,6 @@ fn read_dir(
                 continue;
             }
         };
-        let metadata = fs::metadata(dir_entry.path());
-        if let Err(error) = metadata {
-            result_buffer
-                .lock()
-                .unwrap()
-                .push_back(Err(Error::new(dir_entry.path(), error)));
-            continue;
-        }
 
         paths
             .lock()

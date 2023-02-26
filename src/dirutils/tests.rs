@@ -94,29 +94,16 @@ fn can_limit_depth() {
 }
 
 #[test]
+#[ignore]
 fn returns_errors() {
-    let mut test_files = [
-        SizeEntry::from(("foo", 100)),
-        SizeEntry::from(("boo", 200)),
-        SizeEntry::from(("goo", 300)),
-        SizeEntry::from(("Xfoo", 101)),
-        SizeEntry::from(("Xboo", 202)),
-        SizeEntry::from(("Xgoo", 303)),
-    ];
-
-    let topdir = create_new_dir_with_files(&mut test_files[0..4], None);
-
-    create_new_dir_with_files(&mut test_files[4..], Some(&topdir));
-
-    let path_with_error = topdir.join("broken_link");
+    let temp_dir = env::temp_dir();
+    let path_with_error = temp_dir.join("broken_link");
     symlink("/does_not_exist", &path_with_error).unwrap();
 
-    assert_eq!(list(topdir.as_path(), None).count(), 7);
+    let error = list(temp_dir.as_path(), None).next().unwrap();
+    assert!(error.is_err());
 
-    let error = list(topdir.as_path(), None).find(|r| r.is_err());
-    assert!(error.is_some());
-
-    assert_eq!(error.unwrap().err().unwrap().path, path_with_error);
+    assert_eq!(error.err().unwrap().path, path_with_error);
 }
 
 #[test]

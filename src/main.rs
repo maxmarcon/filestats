@@ -4,6 +4,7 @@ use std::process::exit;
 use std::time::Instant;
 
 use filestats::dirutils;
+use filestats::dirutils::SizeEntry;
 use filestats::stats::Histogram;
 
 #[derive(Parser, Debug)]
@@ -38,6 +39,8 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
         .collect::<Vec<_>>();
 
     let start = Instant::now();
+    let (mut min, mut max): (Option<SizeEntry>, Option<SizeEntry>) = (None, None);
+
     let (hist, errors) = args
         .paths
         .iter()
@@ -45,11 +48,21 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
         .enumerate()
         .map(|(cnt, r)| {
             if cnt % 10 == 0 {
-                print!("\rLooked at {} files", cnt);
+                print!("\rScanning {} files", cnt);
             }
-            if let Err(ref error) = r {
-                if args.verbose {
-                    eprintln!("\n{}", error);
+            match r {
+                Err(ref error) => {
+                    if args.verbose {
+                        eprintln!("\n{}", error);
+                    }
+                }
+                Ok(ref size_entry) => {
+                    if max.is_none() || size_entry.size > max.as_ref().unwrap().size {
+                        max = Some(size_entry.to_owned());
+                    }
+                    if min.is_none() || size_entry.size < min.as_ref().unwrap().size {
+                        min = Some(size_entry.to_owned())
+                    }
                 }
             }
             r
@@ -69,10 +82,22 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
     println!("{}", hist);
 
     println!(
-        "Looked at {} files in {} seconds",
+        "Scanned {} files in {} seconds",
         hist.count(),
         start.elapsed().as_secs()
     );
+
+    if let Some(avg_size) = hist.avg() {
+        println!("Average size: {} bytes", avg_size)
+    }
+
+    if let Some(max) = max {
+        println!("Larger file: {:?} ({} bytes)", max.path, max.size);
+    }
+
+    if let Some(min) = min {
+        println!("Smaller file: {:?} ({} bytes)", min.path, min.size);
+    }
 
     if errors > 0 {
         println!("{} files could not be read", errors);
