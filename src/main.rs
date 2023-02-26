@@ -3,9 +3,11 @@ use std::error::Error;
 use std::process::exit;
 use std::time::Instant;
 
-use filestats::dirutils;
 use filestats::dirutils::SizeEntry;
 use filestats::stats::Histogram;
+use filestats::{dirutils, utils};
+
+use utils::format_bytes;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -88,15 +90,23 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
     );
 
     if let Some(avg_size) = hist.avg() {
-        println!("Average size: {} bytes", avg_size)
+        println!("Average size: {} bytes", format_bytes(avg_size as u64))
     }
 
     if let Some(max) = max {
-        println!("Larger file: {:?} ({} bytes)", max.path, max.size);
+        println!(
+            "Larger file at {} bytes: {:?}",
+            format_bytes(max.size),
+            max.path
+        );
     }
 
     if let Some(min) = min {
-        println!("Smaller file: {:?} ({} bytes)", min.path, min.size);
+        println!(
+            "Smaller file at {} bytes: {:?}",
+            format_bytes(min.size),
+            min.path
+        );
     }
 
     if errors > 0 {

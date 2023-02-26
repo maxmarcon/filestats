@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+use crate::utils::format_bytes;
 use console::{pad_str, style, Alignment, Color};
 
 #[derive(PartialEq, Debug)]
@@ -103,7 +104,7 @@ impl std::fmt::Display for Histogram {
                 let (histogram, color) = hist_bars(perc, &colors, PERC_POINT_PER_BAR);
                 write!(
                     f,
-                    "{} {} {} {:7$} {:>5.1}{} {}\n",
+                    "{:<7} {} {:<7} {:7$} {:>5.1}{} {}\n",
                     style(format_bytes(base)).fg(color),
                     style("to").fg(color),
                     style(format_bytes(bucket.ceiling)).fg(color),
@@ -118,24 +119,6 @@ impl std::fmt::Display for Histogram {
 
         Ok(())
     }
-}
-
-fn format_bytes(size: u64) -> String {
-    const UNIT_SIZES: [u64; 3] = [2_u64.pow(30), 2_u64.pow(20), 2_u64.pow(10)];
-    const UNIT_NAMES: [char; 3] = ['G', 'M', 'K'];
-
-    let mut byte_string = None;
-
-    for (&unit_size, unit_name) in UNIT_SIZES.iter().zip(UNIT_NAMES) {
-        if size >= unit_size {
-            byte_string = Some(format!("{}{}iB", size / unit_size, unit_name));
-            break;
-        }
-    }
-
-    let byte_string = byte_string.unwrap_or(format!("{}B", size));
-
-    format!("{:<7}", byte_string)
 }
 
 fn hist_bars(perc: f32, colors: &[Color], perc_point_per_bar: u32) -> (String, Color) {
