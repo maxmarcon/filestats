@@ -3,18 +3,28 @@ use std::error::Error;
 use std::process::exit;
 use std::time::Instant;
 
+use filestats::dirutils;
 use filestats::dirutils::SizeEntry;
 use filestats::stats::Histogram;
-use filestats::{dirutils, utils};
 
-use utils::format_bytes;
+use filestats::utils::format_bytes;
 
 #[derive(Parser, Debug)]
+#[command(
+    name = "filestats",
+    about = "Utility that outputs colorful statistics about the size of your files",
+    author = "Max Marcon (https://github.com/maxmarcon/)",
+    version = "0.1.0"
+)]
 struct Args {
     paths: Vec<String>,
-    #[arg(long, short)]
-    depth: Option<u32>,
-    #[arg(long, short)]
+    #[arg(
+        long,
+        short = 'd',
+        help = "max depth to consider. 0 = do not recurse into subdirectories. Default: infinity"
+    )]
+    max_depth: Option<u32>,
+    #[arg(long, short, help = "shows verbose information about errors")]
     verbose: bool,
 }
 
@@ -46,7 +56,7 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
     let (hist, errors) = args
         .paths
         .iter()
-        .flat_map(|path| dirutils::list(std::path::Path::new(path), args.depth))
+        .flat_map(|path| dirutils::list(std::path::Path::new(path), args.max_depth))
         .enumerate()
         .map(|(cnt, r)| {
             if cnt % 10 == 0 {
