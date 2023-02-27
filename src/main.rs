@@ -1,5 +1,4 @@
 use clap::Parser;
-use std::error::Error;
 use std::process::exit;
 use std::time::Instant;
 
@@ -31,8 +30,8 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    if let Err(error) = run(args) {
-        eprintln!("{error}");
+    if let Err(error_msg) = run(args) {
+        eprintln!("{error_msg}");
         exit(1);
     }
 }
@@ -40,9 +39,9 @@ fn main() {
 const SIZES: [u64; 3] = [1, 10, 100];
 const EXP: [u32; 4] = [10, 20, 30, 40];
 
-fn run(args: Args) -> Result<(), Box<dyn Error>> {
+fn run(args: Args) -> Result<(), String> {
     if args.paths.is_empty() {
-        return Err("You should specify at least one path!".into());
+        return Err(String::from("You should specify at least one path!"));
     }
 
     let ceilings = EXP
