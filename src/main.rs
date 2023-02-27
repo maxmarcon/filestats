@@ -39,9 +39,9 @@ fn main() {
 const SIZES: [u64; 3] = [1, 10, 100];
 const EXP: [u32; 4] = [10, 20, 30, 40];
 
-fn run(args: Args) -> Result<(), String> {
+fn run(args: Args) -> Result<(), &'static str> {
     if args.paths.is_empty() {
-        return Err(String::from("You should specify at least one path!"));
+        return Err("You should specify at least one path!");
     }
 
     let ceilings = EXP
