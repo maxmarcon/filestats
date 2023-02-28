@@ -104,7 +104,7 @@ fn run(args: Args) -> Result<(), &'static str> {
 
     if let Some(max) = max {
         println!(
-            "Larger file at {} bytes: {:?}",
+            "Largest file at {} bytes: {:?}",
             format_bytes(max.size),
             max.path
         );
@@ -112,7 +112,7 @@ fn run(args: Args) -> Result<(), &'static str> {
 
     if let Some(min) = min {
         println!(
-            "Smaller file at {} bytes: {:?}",
+            "Smallest file at {} bytes: {:?}",
             format_bytes(min.size),
             min.path
         );

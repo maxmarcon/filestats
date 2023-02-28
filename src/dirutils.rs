@@ -126,8 +126,11 @@ fn read_dir(
     }
 
     for dir_entry in dir_entries.unwrap() {
-        let dir_entry = match dir_entry {
-            Ok(dir_entry) => dir_entry,
+        match dir_entry {
+            Ok(dir_entry) => paths
+                .lock()
+                .unwrap()
+                .push_back((dir_entry.path(), level + 1)),
             Err(error) => {
                 result_buffer
                     .lock()
@@ -136,10 +139,5 @@ fn read_dir(
                 continue;
             }
         };
-
-        paths
-            .lock()
-            .unwrap()
-            .push_back((dir_entry.path(), level + 1));
     }
 }
