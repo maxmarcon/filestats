@@ -115,7 +115,7 @@ fn read_dir(
     paths: Arc<Mutex<VecDeque<(PathBuf, u32)>>>,
     result_buffer: Arc<Mutex<VecDeque<Result>>>,
     level: u32,
-) -> () {
+) {
     let dir_entries = fs::read_dir(&dir_path);
     if dir_entries.is_err() {
         result_buffer

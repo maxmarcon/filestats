@@ -34,7 +34,7 @@ impl Histogram {
             ceiling: u64::MAX,
         });
 
-        Histogram { buckets: buckets }
+        Histogram { buckets }
     }
 
     pub fn add(&mut self, sample: u64) -> &mut Self {
@@ -102,9 +102,9 @@ impl std::fmt::Display for Histogram {
                 let perc = 100.0 * (bucket.count as f32 / total as f32);
 
                 let (histogram, color) = hist_bars(perc, &colors, PERC_POINT_PER_BAR);
-                write!(
+                writeln!(
                     f,
-                    "{:<7} {} {:<7} {:7$} {:>5.1}{} {}\n",
+                    "{:<7} {} {:<7} {:7$} {:>5.1}{} {}",
                     style(format_bytes(base)).fg(color),
                     style("to").fg(color),
                     style(format_bytes(bucket.ceiling)).fg(color),
@@ -122,25 +122,22 @@ impl std::fmt::Display for Histogram {
 }
 
 fn hist_bars(perc: f32, colors: &[Color], perc_point_per_bar: u32) -> (String, Color) {
-    if perc > 100.0 || perc < 0.0 {
+    if !(0.0..=100.0).contains(&perc) {
         panic!("perc should be a percentage, got {}", perc);
     }
 
     let bars = (perc / perc_point_per_bar as f32) as usize;
-    let bars_per_colors = (100 as f32 / PERC_POINT_PER_BAR as f32) as usize / colors.len() as usize;
+    let bars_per_colors = (100_f32 / PERC_POINT_PER_BAR as f32) as usize / colors.len();
     let mut bar_colors = colors.iter().cycle();
     let mut str = String::new();
 
     let mut current_color = colors[0];
-    for _ in 0..(bars / bars_per_colors as usize) {
+    for _ in 0..(bars / bars_per_colors) {
         current_color = *bar_colors.next().unwrap();
-        str += &format!(
-            "{}",
-            style("|".repeat(bars_per_colors as usize)).fg(current_color)
-        );
+        str += &format!("{}", style("|".repeat(bars_per_colors)).fg(current_color));
     }
 
-    let remainder = bars % bars_per_colors as usize;
+    let remainder = bars % bars_per_colors;
     if remainder > 0 {
         current_color = *bar_colors.next().unwrap();
     }
