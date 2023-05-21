@@ -1,3 +1,5 @@
+use rayon::iter::IntoParallelRefIterator;
+use rayon::iter::ParallelIterator;
 use std::collections::vec_deque::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::fs;
@@ -65,7 +67,7 @@ pub fn traverse(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item = Res
     from_fn(move || -> Option<Result> {
         if result_queue.is_empty() && !dir_queue.is_empty() {
             let path_bits = dir_queue
-                .iter()
+                .par_iter()
                 .flat_map(|(path, depth)| read_dir(path, *depth))
                 .collect::<Vec<PathBit>>();
             dir_queue.clear();
