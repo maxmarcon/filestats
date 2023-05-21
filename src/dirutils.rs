@@ -1,27 +1,32 @@
 #[cfg(test)]
 mod tests;
 
-use rayon::ThreadPoolBuilder;
 use std::collections::vec_deque::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::iter::from_fn;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 
 #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Clone)]
-pub struct SizeEntry {
+pub struct FileSize {
     pub path: PathBuf,
     pub size: u64,
 }
 
-impl SizeEntry {
+type Result = std::result::Result<FileSize, Error>;
+
+enum PathBit {
+    Result(Result),
+    Dir((PathBuf, u32)),
+}
+
+impl FileSize {
     fn new(path: PathBuf, size: u64) -> Self {
         Self { path, size }
     }
 }
 
-impl From<(&str, u64)> for SizeEntry {
+impl From<(&str, u64)> for FileSize {
     fn from((path, size): (&str, u64)) -> Self {
         Self::new(PathBuf::from(path), size)
     }
@@ -49,95 +54,66 @@ impl Display for Error {
     }
 }
 
-type Result = std::result::Result<SizeEntry, Error>;
-
 const RESULT_BUFFER_SIZE: usize = 1000;
 
-pub fn list(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item = Result> {
-    let paths = Arc::new(Mutex::new(VecDeque::from([(path.to_owned(), 0)])));
-    let thread_pool = ThreadPoolBuilder::new().build().unwrap();
-    let result_buffer = Arc::new(Mutex::new(VecDeque::with_capacity(RESULT_BUFFER_SIZE)));
+pub fn traverse(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item = Result> {
+    let mut result_queue = VecDeque::with_capacity(RESULT_BUFFER_SIZE);
+    let mut dir_queue = VecDeque::new();
+    match read_path(path, 0) {
+        Some(PathBit::Dir((path, _))) => dir_queue.push_back((path, 0)),
+        Some(PathBit::Result(result)) => result_queue.push_back(result),
+        None => (),
+    }
 
     from_fn(move || -> Option<Result> {
-        loop {
-            if let Some(result) = result_buffer.lock().unwrap().pop_front() {
-                return Some(result);
-            }
+        if result_queue.is_empty() && !dir_queue.is_empty() {
+            let path_bits = dir_queue
+                .iter()
+                .flat_map(|(path, depth)| read_dir(path, *depth))
+                .collect::<Vec<PathBit>>();
+            dir_queue.clear();
 
-            if paths.lock().unwrap().is_empty() {
-                return None;
-            }
-
-            thread_pool.scope(|s| {
-                while let Some((current_path, level)) = paths.lock().unwrap().pop_front() {
-                    let metadata = match fs::symlink_metadata(&current_path) {
-                        Ok(metadata) => metadata,
-                        Err(error) => {
-                            result_buffer
-                                .lock()
-                                .unwrap()
-                                .push_back(Err(Error::new(current_path, error)));
-                            continue;
-                        }
-                    };
-
-                    if metadata.is_file() {
-                        result_buffer
-                            .lock()
-                            .unwrap()
-                            .push_back(Ok(SizeEntry::new(current_path.clone(), metadata.len())));
-                    }
-
-                    if metadata.is_dir() {
-                        match max_depth {
-                            Some(max_depth) if level > max_depth => (),
-                            _ => {
-                                let paths = Arc::clone(&paths);
-                                let result_buffer = Arc::clone(&result_buffer);
-                                s.spawn(move |_| {
-                                    read_dir(current_path, paths, result_buffer, level)
-                                });
-                            }
-                        }
-                    }
-
-                    if result_buffer.lock().unwrap().len() >= RESULT_BUFFER_SIZE {
-                        return;
+            path_bits.into_iter().for_each(|path_bit| match path_bit {
+                PathBit::Result(result) => result_queue.push_back(result),
+                PathBit::Dir((path, depth)) => {
+                    if max_depth.map_or(true, |max_depth| depth <= max_depth) {
+                        dir_queue.push_back((path, depth))
                     }
                 }
             });
         }
+
+        result_queue.pop_front()
     })
 }
 
-fn read_dir(
-    dir_path: PathBuf,
-    paths: Arc<Mutex<VecDeque<(PathBuf, u32)>>>,
-    result_buffer: Arc<Mutex<VecDeque<Result>>>,
-    level: u32,
-) {
-    let dir_entries = fs::read_dir(&dir_path);
+fn read_dir(dir_path: &Path, depth: u32) -> Vec<PathBit> {
+    let dir_entries = fs::read_dir(dir_path);
     if dir_entries.is_err() {
-        result_buffer
-            .lock()
-            .unwrap()
-            .push_back(Err(Error::new(dir_path, dir_entries.err().unwrap())));
-        return;
+        return vec![PathBit::Result(Err(Error::new(
+            dir_path.to_owned(),
+            dir_entries.err().unwrap(),
+        )))];
     }
 
-    for dir_entry in dir_entries.unwrap() {
-        match dir_entry {
-            Ok(dir_entry) => paths
-                .lock()
-                .unwrap()
-                .push_back((dir_entry.path(), level + 1)),
-            Err(error) => {
-                result_buffer
-                    .lock()
-                    .unwrap()
-                    .push_back(Err(Error::new(dir_path.clone(), error)));
-                continue;
-            }
-        };
+    dir_entries
+        .unwrap()
+        .into_iter()
+        .map_while(|dir_entry| match dir_entry {
+            Ok(dir_entry) => read_path(&dir_entry.path(), depth),
+            Err(error) => Some(PathBit::Result(Err(Error::new(dir_path.to_owned(), error)))),
+        })
+        .collect()
+}
+
+fn read_path(path: &Path, depth: u32) -> Option<PathBit> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.is_file() => Some(PathBit::Result(Ok(FileSize::new(
+            path.to_owned(),
+            metadata.len(),
+        )))),
+        Ok(metadata) if metadata.is_dir() => Some(PathBit::Dir((path.to_owned(), depth + 1))),
+        Ok(_) => None,
+        Err(error) => Some(PathBit::Result(Err(Error::new(path.to_owned(), error)))),
     }
 }

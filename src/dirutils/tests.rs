@@ -1,5 +1,5 @@
-use super::list;
-use super::SizeEntry;
+use super::traverse;
+use super::FileSize;
 use rand::Rng;
 use std::fs::create_dir;
 use std::os::unix::fs::symlink;
@@ -9,14 +9,14 @@ use std::{env, fs};
 #[test]
 fn can_list_files() {
     let mut test_files = [
-        SizeEntry::from(("foo", 100)),
-        SizeEntry::from(("boo", 200)),
-        SizeEntry::from(("goo", 300)),
+        FileSize::from(("foo", 100)),
+        FileSize::from(("boo", 200)),
+        FileSize::from(("goo", 300)),
     ];
 
     let test_dir = create_new_dir_with_files(&mut test_files, None);
 
-    let mut dir_list = list(test_dir.as_path(), None)
+    let mut dir_list = traverse(test_dir.as_path(), None)
         .map(|r| r.ok().unwrap())
         .collect::<Vec<_>>();
 
@@ -32,22 +32,22 @@ fn can_list_files() {
 #[test]
 fn can_list_files_recursively() {
     let mut test_files = [
-        SizeEntry::from(("foo", 100)),
-        SizeEntry::from(("boo", 200)),
-        SizeEntry::from(("goo", 300)),
+        FileSize::from(("foo", 100)),
+        FileSize::from(("boo", 200)),
+        FileSize::from(("goo", 300)),
     ];
 
     let test_dir = create_new_dir_with_files(&mut test_files, None);
 
     let mut test_files_sub_dir = [
-        SizeEntry::from(("abc", 340)),
-        SizeEntry::from(("def", 50)),
-        SizeEntry::from(("ghi", 2)),
+        FileSize::from(("abc", 340)),
+        FileSize::from(("def", 50)),
+        FileSize::from(("ghi", 2)),
     ];
 
     create_new_dir_with_files(&mut test_files_sub_dir, Some(test_dir.as_path()));
 
-    let mut dir_list = list(test_dir.as_path(), None)
+    let mut dir_list = traverse(test_dir.as_path(), None)
         .map(|r| r.ok().unwrap())
         .collect::<Vec<_>>();
 
@@ -65,9 +65,9 @@ fn can_list_files_recursively() {
 #[test]
 fn can_limit_depth() {
     let test_files = [
-        SizeEntry::from(("foo", 100)),
-        SizeEntry::from(("boo", 200)),
-        SizeEntry::from(("goo", 300)),
+        FileSize::from(("foo", 100)),
+        FileSize::from(("boo", 200)),
+        FileSize::from(("goo", 300)),
     ];
 
     let mut dir = PathBuf::new();
@@ -88,7 +88,9 @@ fn can_limit_depth() {
     }
 
     assert_eq!(
-        list(topdir.as_path(), Some(3)).map(|r| r.unwrap()).count(),
+        traverse(topdir.as_path(), Some(3))
+            .map(|r| r.unwrap())
+            .count(),
         12 // 4 levels (0..=3) with 3 files each
     );
 }
@@ -100,7 +102,7 @@ fn returns_errors() {
     let path_with_error = temp_dir.join("broken_link");
     symlink("/does_not_exist", &path_with_error).unwrap();
 
-    let error = list(temp_dir.as_path(), None).next().unwrap();
+    let error = traverse(temp_dir.as_path(), None).next().unwrap();
     assert!(error.is_err());
 
     assert_eq!(error.err().unwrap().path, path_with_error);
@@ -108,11 +110,11 @@ fn returns_errors() {
 
 #[test]
 fn accepts_file_as_input_path() {
-    let mut test_file = [SizeEntry::from(("foo", 200))];
+    let mut test_file = [FileSize::from(("foo", 200))];
 
     create_new_dir_with_files(&mut test_file, None);
 
-    let size_entries = list(test_file[0].path.as_path(), None)
+    let size_entries = traverse(test_file[0].path.as_path(), None)
         .map(|r| r.unwrap())
         .collect::<Vec<_>>();
 
@@ -125,7 +127,7 @@ fn accepts_nonexistent_paths() {
 
     let path = PathBuf::from(format!("{}", rng.gen::<u32>()));
 
-    let result = list(path.as_path(), None).next().unwrap();
+    let result = traverse(path.as_path(), None).next().unwrap();
 
     assert!(result.is_err());
 
@@ -134,7 +136,7 @@ fn accepts_nonexistent_paths() {
 
 /// Creates `test_files` in a new dir with a randomly generated name
 /// place dir in `dest` (if provided) or in a temporary system folder
-fn create_new_dir_with_files(test_files: &mut [SizeEntry], dest: Option<&Path>) -> PathBuf {
+fn create_new_dir_with_files(test_files: &mut [FileSize], dest: Option<&Path>) -> PathBuf {
     let mut rng = rand::thread_rng();
 
     let temp_dir = env::temp_dir();

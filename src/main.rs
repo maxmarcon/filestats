@@ -3,7 +3,7 @@ use std::process::exit;
 use std::time::Instant;
 
 use filestats::dirutils;
-use filestats::dirutils::SizeEntry;
+use filestats::dirutils::FileSize;
 use filestats::stats::Histogram;
 
 use filestats::utils::format_bytes;
@@ -50,12 +50,12 @@ fn run(args: Args) -> Result<(), &'static str> {
         .collect::<Vec<_>>();
 
     let start = Instant::now();
-    let (mut min, mut max): (Option<SizeEntry>, Option<SizeEntry>) = (None, None);
+    let (mut min, mut max): (Option<FileSize>, Option<FileSize>) = (None, None);
 
     let (hist, errors) = args
         .paths
         .iter()
-        .flat_map(|path| dirutils::list(std::path::Path::new(path), args.max_depth))
+        .flat_map(|path| dirutils::traverse(std::path::Path::new(path), args.max_depth))
         .enumerate()
         .map(|(cnt, r)| {
             if cnt % 10 == 0 {
