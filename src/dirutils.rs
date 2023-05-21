@@ -1,5 +1,6 @@
-use rayon::iter::IntoParallelRefIterator;
+use rayon::iter::ParallelDrainRange;
 use rayon::iter::ParallelIterator;
+use std::cmp::min;
 use std::collections::vec_deque::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::fs;
@@ -53,10 +54,11 @@ impl Display for Error {
     }
 }
 
-const RESULT_BUFFER_SIZE: usize = 1000;
+// max number of paths that will be traversed in parallel at any time
+const MAX_PARALLEL_TRAVERSAL: usize = 1_000;
 
 pub fn traverse(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item = Result> {
-    let mut result_queue = VecDeque::with_capacity(RESULT_BUFFER_SIZE);
+    let mut result_queue = VecDeque::new();
     let mut dir_queue = VecDeque::new();
     match read_path(path, 0) {
         Some(PathBit::Dir((path, _))) => dir_queue.push_back((path, 0)),
@@ -65,12 +67,11 @@ pub fn traverse(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item = Res
     }
 
     from_fn(move || -> Option<Result> {
-        if result_queue.is_empty() && !dir_queue.is_empty() {
+        while result_queue.is_empty() && !dir_queue.is_empty() {
             let path_bits = dir_queue
-                .par_iter()
-                .flat_map(|(path, depth)| read_dir(path, *depth))
+                .par_drain(..(min(MAX_PARALLEL_TRAVERSAL, dir_queue.len())))
+                .flat_map(|(path, depth)| read_dir(&path, depth))
                 .collect::<Vec<PathBit>>();
-            dir_queue.clear();
 
             path_bits.into_iter().for_each(|path_bit| match path_bit {
                 PathBit::Result(result) => result_queue.push_back(result),
