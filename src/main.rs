@@ -1,12 +1,11 @@
-use clap::Parser;
-use std::process::exit;
-use std::time::Instant;
-
+use clap::error::ErrorKind;
+use clap::{CommandFactory, Parser};
 use filestats::dirutils;
 use filestats::dirutils::FileSize;
 use filestats::stats::Histogram;
-
 use filestats::utils::format_bytes;
+use std::process::exit;
+use std::time::Instant;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -15,7 +14,7 @@ use filestats::utils::format_bytes;
     author = "Max Marcon (https://github.com/maxmarcon/)",
     version = "0.1.0"
 )]
-struct Args {
+struct Filestats {
     paths: Vec<String>,
     #[arg(
         long,
@@ -30,7 +29,15 @@ struct Args {
 }
 
 fn main() {
-    let args = Args::parse();
+    let args = Filestats::parse();
+    if args.paths.is_empty() {
+        Filestats::command()
+            .error(
+                ErrorKind::MissingRequiredArgument,
+                "You should specify at least one path!",
+            )
+            .exit();
+    }
 
     if let Err(error_msg) = run(args) {
         eprintln!("{error_msg}");
@@ -41,11 +48,7 @@ fn main() {
 const SIZES: [u64; 3] = [1, 10, 100];
 const EXP: [u32; 4] = [10, 20, 30, 40];
 
-fn run(args: Args) -> Result<(), &'static str> {
-    if args.paths.is_empty() {
-        return Err("You should specify at least one path!");
-    }
-
+fn run(args: Filestats) -> Result<(), &'static str> {
     let ceilings = EXP
         .iter()
         .flat_map(|&e| SIZES.map(|s| s * 2_u64.pow(e)))
