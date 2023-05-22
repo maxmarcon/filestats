@@ -24,7 +24,7 @@ struct Filestats {
     max_depth: Option<u32>,
     #[arg(long, short, help = "shows verbose information about errors")]
     verbose: bool,
-    #[arg(long, short, help = "how many paths will be visited in parallel, defaults to X", value_parser = clap::value_parser!(u32).range(1..))]
+    #[arg(long, short, help = format!("how many paths will be visited in parallel, defaults to {}", dirutils::DEFAULT_PARALLEL_PATHS), value_parser = clap::value_parser!(u32).range(1..))]
     parallelism: Option<u32>,
 }
 

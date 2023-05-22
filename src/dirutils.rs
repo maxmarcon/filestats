@@ -55,14 +55,14 @@ impl Display for Error {
 }
 
 // max number of paths that will be traversed in parallel at any time
-const MAX_PARALLEL_PATHS: u32 = 1_000;
+pub const DEFAULT_PARALLEL_PATHS: u32 = 1_000;
 
 pub fn visit(
     path: &Path,
     max_depth: Option<u32>,
     max_parallel: Option<u32>,
 ) -> impl Iterator<Item = Result> {
-    let max_parallel = max_parallel.unwrap_or(MAX_PARALLEL_PATHS) as usize;
+    let max_parallel = max_parallel.unwrap_or(DEFAULT_PARALLEL_PATHS) as usize;
     let mut result_queue = VecDeque::new();
     let mut dir_queue = VecDeque::new();
     match read_path(path, 0) {

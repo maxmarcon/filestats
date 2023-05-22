@@ -11,10 +11,11 @@ Arguments:
   [PATHS]...  
 
 Options:
-  -d, --max-depth <MAX_DEPTH>  max depth to consider. 0 = do not recurse into subdirectories. Default: infinity
-  -v, --verbose                shows verbose information about errors
-  -h, --help                   Print help
-  -V, --version                Print version
+  -d, --max-depth <MAX_DEPTH>      max depth to consider. 0 = do not recurse into subdirectories. Default: infinity
+  -v, --verbose                    shows verbose information about errors
+  -p, --parallelism <PARALLELISM>  how many paths will be visited in parallel, defaults to 1000
+  -h, --help                       Print help
+  -V, --version                    Print version
 ```
 
 ### Output:
