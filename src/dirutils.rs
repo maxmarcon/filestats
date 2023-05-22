@@ -15,7 +15,7 @@ pub struct FileSize {
 
 type Result = std::result::Result<FileSize, Error>;
 
-enum PathBit {
+enum VisitedPath {
     Result(Result),
     Dir((PathBuf, u32)),
 }
@@ -66,21 +66,21 @@ pub fn visit(
     let mut result_queue = VecDeque::new();
     let mut dir_queue = VecDeque::new();
     match read_path(path, 0) {
-        Some(PathBit::Dir((path, _))) => dir_queue.push_back((path, 0)),
-        Some(PathBit::Result(result)) => result_queue.push_back(result),
+        Some(VisitedPath::Dir((path, _))) => dir_queue.push_back((path, 0)),
+        Some(VisitedPath::Result(result)) => result_queue.push_back(result),
         None => (),
     }
 
     from_fn(move || -> Option<Result> {
         while result_queue.is_empty() && !dir_queue.is_empty() {
-            let path_bits = dir_queue
+            let path_bits: Vec<_> = dir_queue
                 .par_drain(..(min(max_parallel, dir_queue.len())))
                 .flat_map(|(path, depth)| read_dir(&path, depth))
-                .collect::<Vec<PathBit>>();
+                .collect();
 
             path_bits.into_iter().for_each(|path_bit| match path_bit {
-                PathBit::Result(result) => result_queue.push_back(result),
-                PathBit::Dir((path, depth)) => {
+                VisitedPath::Result(result) => result_queue.push_back(result),
+                VisitedPath::Dir((path, depth)) => {
                     if max_depth.map_or(true, |max_depth| depth <= max_depth) {
                         dir_queue.push_back((path, depth))
                     }
@@ -92,10 +92,10 @@ pub fn visit(
     })
 }
 
-fn read_dir(dir_path: &Path, depth: u32) -> Vec<PathBit> {
+fn read_dir(dir_path: &Path, depth: u32) -> Vec<VisitedPath> {
     let dir_entries = fs::read_dir(dir_path);
     if dir_entries.is_err() {
-        return vec![PathBit::Result(Err(Error::new(
+        return vec![VisitedPath::Result(Err(Error::new(
             dir_path.to_owned(),
             dir_entries.err().unwrap(),
         )))];
@@ -106,20 +106,23 @@ fn read_dir(dir_path: &Path, depth: u32) -> Vec<PathBit> {
         .into_iter()
         .map_while(|dir_entry| match dir_entry {
             Ok(dir_entry) => read_path(&dir_entry.path(), depth),
-            Err(error) => Some(PathBit::Result(Err(Error::new(dir_path.to_owned(), error)))),
+            Err(error) => Some(VisitedPath::Result(Err(Error::new(
+                dir_path.to_owned(),
+                error,
+            )))),
         })
         .collect()
 }
 
-fn read_path(path: &Path, depth: u32) -> Option<PathBit> {
+fn read_path(path: &Path, depth: u32) -> Option<VisitedPath> {
     match fs::symlink_metadata(path) {
-        Ok(metadata) if metadata.is_file() => Some(PathBit::Result(Ok(FileSize::new(
+        Ok(metadata) if metadata.is_file() => Some(VisitedPath::Result(Ok(FileSize::new(
             path.to_owned(),
             metadata.len(),
         )))),
-        Ok(metadata) if metadata.is_dir() => Some(PathBit::Dir((path.to_owned(), depth + 1))),
+        Ok(metadata) if metadata.is_dir() => Some(VisitedPath::Dir((path.to_owned(), depth + 1))),
         Ok(_) => None,
-        Err(error) => Some(PathBit::Result(Err(Error::new(path.to_owned(), error)))),
+        Err(error) => Some(VisitedPath::Result(Err(Error::new(path.to_owned(), error)))),
     }
 }
 
