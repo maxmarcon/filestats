@@ -25,6 +25,8 @@ struct Args {
     max_depth: Option<u32>,
     #[arg(long, short, help = "shows verbose information about errors")]
     verbose: bool,
+    #[arg(long, short, help = "how many paths will be visited in parallel, defaults to X", value_parser = clap::value_parser!(u32).range(1..))]
+    parallelism: Option<u32>,
 }
 
 fn main() {
@@ -54,8 +56,14 @@ fn run(args: Args) -> Result<(), &'static str> {
 
     let (hist, errors) = args
         .paths
-        .iter()
-        .flat_map(|path| dirutils::traverse(std::path::Path::new(path), args.max_depth))
+        .into_iter()
+        .flat_map(|path| {
+            dirutils::visit(
+                std::path::Path::new(&path),
+                args.max_depth,
+                args.parallelism,
+            )
+        })
         .enumerate()
         .map(|(cnt, r)| {
             if cnt % 10 == 0 {

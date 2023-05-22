@@ -55,9 +55,14 @@ impl Display for Error {
 }
 
 // max number of paths that will be traversed in parallel at any time
-const MAX_PARALLEL_TRAVERSAL: usize = 1_000;
+const MAX_PARALLEL_PATHS: u32 = 1_000;
 
-pub fn traverse(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item = Result> {
+pub fn visit(
+    path: &Path,
+    max_depth: Option<u32>,
+    max_parallel: Option<u32>,
+) -> impl Iterator<Item = Result> {
+    let max_parallel = max_parallel.unwrap_or(MAX_PARALLEL_PATHS) as usize;
     let mut result_queue = VecDeque::new();
     let mut dir_queue = VecDeque::new();
     match read_path(path, 0) {
@@ -69,7 +74,7 @@ pub fn traverse(path: &Path, max_depth: Option<u32>) -> impl Iterator<Item = Res
     from_fn(move || -> Option<Result> {
         while result_queue.is_empty() && !dir_queue.is_empty() {
             let path_bits = dir_queue
-                .par_drain(..(min(MAX_PARALLEL_TRAVERSAL, dir_queue.len())))
+                .par_drain(..(min(max_parallel, dir_queue.len())))
                 .flat_map(|(path, depth)| read_dir(&path, depth))
                 .collect::<Vec<PathBit>>();
 
@@ -120,7 +125,7 @@ fn read_path(path: &Path, depth: u32) -> Option<PathBit> {
 
 #[cfg(test)]
 mod tests {
-    use super::traverse;
+    use super::visit;
     use super::FileSize;
     use rand::Rng;
     use std::fs::create_dir;
@@ -138,7 +143,7 @@ mod tests {
 
         let test_dir = create_new_dir_with_files(&mut test_files, None);
 
-        let mut dir_list = traverse(test_dir.as_path(), None)
+        let mut dir_list = visit(test_dir.as_path(), None, Some(1))
             .map(|r| r.ok().unwrap())
             .collect::<Vec<_>>();
 
@@ -169,7 +174,7 @@ mod tests {
 
         create_new_dir_with_files(&mut test_files_sub_dir, Some(test_dir.as_path()));
 
-        let mut dir_list = traverse(test_dir.as_path(), None)
+        let mut dir_list = visit(test_dir.as_path(), None, Some(1))
             .map(|r| r.ok().unwrap())
             .collect::<Vec<_>>();
 
@@ -210,7 +215,7 @@ mod tests {
         }
 
         assert_eq!(
-            traverse(topdir.as_path(), Some(3))
+            visit(topdir.as_path(), Some(3), Some(1))
                 .map(|r| r.unwrap())
                 .count(),
             12 // 4 levels (0..=3) with 3 files each
@@ -224,7 +229,7 @@ mod tests {
         let path_with_error = temp_dir.join("broken_link");
         symlink("/does_not_exist", &path_with_error).unwrap();
 
-        let error = traverse(temp_dir.as_path(), None).next().unwrap();
+        let error = visit(temp_dir.as_path(), None, Some(1)).next().unwrap();
         assert!(error.is_err());
 
         assert_eq!(error.err().unwrap().path, path_with_error);
@@ -236,7 +241,7 @@ mod tests {
 
         create_new_dir_with_files(&mut test_file, None);
 
-        let size_entries = traverse(test_file[0].path.as_path(), None)
+        let size_entries = visit(test_file[0].path.as_path(), None, Some(1))
             .map(|r| r.unwrap())
             .collect::<Vec<_>>();
 
@@ -249,7 +254,7 @@ mod tests {
 
         let path = PathBuf::from(format!("{}", rng.gen::<u32>()));
 
-        let result = traverse(path.as_path(), None).next().unwrap();
+        let result = visit(path.as_path(), None, Some(1)).next().unwrap();
 
         assert!(result.is_err());
 
